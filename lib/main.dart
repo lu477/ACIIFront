@@ -52,18 +52,28 @@ class _MyHomePageState extends State<MyHomePage> {
       appBar: AppBar(
         title: Text(widget.title),
       ),
-      body: Center(
-        child: SizedBox(
-          height: MediaQuery.of(context).size.height,
-          width: MediaQuery.of(context).size.width,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [Expanded(child: WebViewWidget(
-              controller: controller,
-            )
-              ,)],
+      body: Column(
+        children: [
+          ElevatedButton(onPressed: () async {
+            await getPermissions();
+          }, child: const Text("Get permissions"))
+,
+          Expanded(
+            child: Center(
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height,
+                width: MediaQuery.of(context).size.width,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [Expanded(child: WebViewWidget(
+                    controller: controller,
+                  )
+                    ,)],
+                ),
+              ),
+            ),
           ),
-        ),
+        ],
       ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
@@ -75,12 +85,21 @@ class _MyHomePageState extends State<MyHomePage> {
     print(decodedData['query']);
   }
 
-  Future<void> getPermissions() async {
+  Future<bool> getPermissions() async {
     Map<Permission, PermissionStatus> statuses = await [
-      Permission.location,
       Permission.storage,
       Permission.manageExternalStorage,
+      Permission.mediaLibrary,
+      Permission.accessMediaLocation,
     ].request();
+    var storage = statuses[Permission.storage];
+    var manageExternalStorage = statuses[Permission.manageExternalStorage];
+    if (storage!.isGranted || manageExternalStorage!.isGranted) {
+      await Permission.storage.request();
+      await Permission.manageExternalStorage.request();
+      return true;
+    }
+    return false;
   }
 
   void addFileSelectionListener() async {
