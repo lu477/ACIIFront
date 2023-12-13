@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:ascii_front/request.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -37,9 +38,12 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
 
+  late String localPath;
+
   @override
   void initState() {
     addFileSelectionListener();
+    getPermissions();
     super.initState();
   }
 
@@ -52,29 +56,19 @@ class _MyHomePageState extends State<MyHomePage> {
       appBar: AppBar(
         title: Text(widget.title),
       ),
-      body: Column(
-        children: [
-          ElevatedButton(onPressed: () async {
-            await getPermissions();
-          }, child: const Text("Get permissions"))
-,
-          Expanded(
-            child: Center(
-              child: SizedBox(
-                height: MediaQuery.of(context).size.height,
-                width: MediaQuery.of(context).size.width,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [Expanded(child: WebViewWidget(
-                    controller: controller,
-                  )
-                    ,)],
-                ),
-              ),
-            ),
+      body:           Center(
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height,
+          width: MediaQuery.of(context).size.width,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [Expanded(child: WebViewWidget(
+              controller: controller,
+            )
+              ,)],
           ),
-        ],
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+        ),
+      )// This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 
@@ -117,5 +111,30 @@ class _MyHomePageState extends State<MyHomePage> {
       return [file.uri.toString()];
     }
     return [];
+  }
+
+  Future<void> prepareSaveDir() async {
+    localPath = (await findLocalPath())!;
+    final savedDir = Directory(localPath);
+    bool hasExisted = await savedDir.exists();
+    if (!hasExisted) {
+      savedDir.create();
+    }
+    return ;
+  }
+  Future<String?> findLocalPath() async {
+    var externalStorageDirPath;
+    if (Platform.isAndroid) {
+      try {
+        externalStorageDirPath = await getApplicationDocumentsDirectory();
+      } catch (e) {
+        final directory = await getExternalStorageDirectory();
+        externalStorageDirPath = directory?.path;
+      }
+    } else if (Platform.isIOS) {
+      externalStorageDirPath =
+          (await getApplicationDocumentsDirectory()).absolute.path;
+    }
+    return externalStorageDirPath;
   }
 }
