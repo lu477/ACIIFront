@@ -39,14 +39,18 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  late String localPath;
   late File selectedVideo;
-  bool succeed = false;
-  bool isLoading = false;
   late VideoPlayerController _controller;
+  String localPath = "";
+  bool succeed = false;
 
   @override
   void initState() {
+    _controller = VideoPlayerController.file(File(localPath))
+      ..initialize().then((_) {
+        // Ensure the first frame is shown after the video is initialized, even before the play button has been pressed.
+        setState(() {});
+      });
     getPermissions();
     super.initState();
   }
@@ -68,9 +72,13 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
           ),
           if(succeed)
-          AspectRatio(
-            aspectRatio: _controller.value.aspectRatio,
-            child: VideoPlayer(_controller),
+          SizedBox(
+            width: MediaQuery.of(context).size.width,
+            height: MediaQuery.of(context).size.height / 2,
+            child: AspectRatio(
+              aspectRatio: _controller.value.aspectRatio,
+              child: VideoPlayer(_controller),
+            ),
           ),
           succeed ? IconButton(onPressed: (){
             setState(() {
@@ -155,9 +163,10 @@ class _MyHomePageState extends State<MyHomePage> {
       final decodedBytes = base64.decode(base64Data);
       final appDocumentDirectory = await getExternalStorageDirectory();
       final file = File('${appDocumentDirectory?.path}/converted_video.mp4');
+      localPath = '${appDocumentDirectory?.path}/converted_video.mp4';
       await file.writeAsBytes(decodedBytes);
-      GallerySaver.saveVideo("${appDocumentDirectory!.path}/converted_video.mp4").then((value) {
-        print('Video saved');
+      GallerySaver.saveVideo(localPath).then((value) {
+        showToast('Video Saved !');
       });
       print('Video saved to: ${file.path}');
       setState(() {
@@ -187,11 +196,12 @@ class _MyHomePageState extends State<MyHomePage> {
     }
     else{
     prepareVideoPlayer();
+    _controller.play();
     }
   }
 
   void prepareVideoPlayer(){
-    _controller = VideoPlayerController.file(File("/data/user/0/com.example.ascii_front/app_flutter/converted_video.mp4"))
+    _controller = VideoPlayerController.file(File(localPath))
       ..initialize().then((_) {
         // Ensure the first frame is shown after the video is initialized, even before the play button has been pressed.
         setState(() {});
