@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:gallery_saver/gallery_saver.dart';
 import 'package:http/http.dart' as http;
 import 'package:loading_indicator/loading_indicator.dart';
 import 'package:path_provider/path_provider.dart';
@@ -46,14 +47,8 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   void initState() {
-    final appDocumentDirectory = getApplicationDocumentsDirectory();
     getPermissions();
     super.initState();
-    _controller = VideoPlayerController.file(File("/data/user/0/com.example.ascii_front/app_flutter/converted_video.mp4"))
-      ..initialize().then((_) {
-        // Ensure the first frame is shown after the video is initialized, even before the play button has been pressed.
-        setState(() {});
-      });
   }
 
   @override
@@ -73,15 +68,15 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
           ),
           if(succeed)
-            AspectRatio(
-              aspectRatio: _controller.value.aspectRatio,
-              child: VideoPlayer(_controller),
-            ),
+          AspectRatio(
+            aspectRatio: _controller.value.aspectRatio,
+            child: VideoPlayer(_controller),
+          ),
           succeed ? IconButton(onPressed: (){
             setState(() {
               _controller.value.isPlaying
                   ? _controller.pause()
-                  : _controller.play();
+                  : play();
             });
           }, icon: Icon(
             _controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
@@ -139,6 +134,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future<bool> getPermissions() async {
     Map<Permission, PermissionStatus> statuses = await [
+      Permission.videos,
       Permission.storage,
       Permission.manageExternalStorage,
       Permission.mediaLibrary,
@@ -157,20 +153,24 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> saveVideoToStorage(String base64Data) async {
     try {
       final decodedBytes = base64.decode(base64Data);
-      final appDocumentDirectory = await getApplicationDocumentsDirectory();
-      final file = File('${appDocumentDirectory.path}/converted_video.mp4');
+      final appDocumentDirectory = await getExternalStorageDirectory();
+      final file = File('${appDocumentDirectory?.path}/converted_video.mp4');
       await file.writeAsBytes(decodedBytes);
+      GallerySaver.saveVideo("${appDocumentDirectory!.path}/converted_video.mp4").then((value) {
+        print('Video saved');
+      });
       print('Video saved to: ${file.path}');
-      showToast('Video saved successfully: ${file.path}');
-      succeed = true;
+      setState(() {
+        succeed = true;
+      });
     } catch (e) {
       print('Error saving video to storage: $e');
-      showToast('Error saving video. Please try again.');
+      return showToast('Error saving video. Please try again.');
     }
   }
 
-  void showToast(String message) {
-    Fluttertoast.showToast(
+  dynamic showToast(String message) {
+    return Fluttertoast.showToast(
       msg: message,
       toastLength: Toast.LENGTH_SHORT,
       gravity: ToastGravity.BOTTOM,
@@ -179,5 +179,22 @@ class _MyHomePageState extends State<MyHomePage> {
       textColor: Colors.white,
       fontSize: 16.0,
     );
+  }
+
+  void play(){
+    if(_controller.value.isInitialized){
+    _controller.play();
+    }
+    else{
+    prepareVideoPlayer();
+    }
+  }
+
+  void prepareVideoPlayer(){
+    _controller = VideoPlayerController.file(File("/data/user/0/com.example.ascii_front/app_flutter/converted_video.mp4"))
+      ..initialize().then((_) {
+        // Ensure the first frame is shown after the video is initialized, even before the play button has been pressed.
+        setState(() {});
+      });
   }
 }
