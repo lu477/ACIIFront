@@ -9,6 +9,7 @@ import 'package:loading_indicator/loading_indicator.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:chewie/chewie.dart';
 
 void main() {
   runApp(const MyApp());
@@ -22,7 +23,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        backgroundColor: Colors.black,
       ),
       home: const MyHomePage(title: 'Flutter Demo Home Page'),
     );
@@ -40,17 +41,27 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   late File selectedVideo;
-  late VideoPlayerController _controller;
   String localPath = "";
   bool succeed = false;
+  late ChewieController _chewieController;
 
   @override
   void initState() {
-    _controller = VideoPlayerController.file(File(localPath))
-      ..initialize().then((_) {
-        // Ensure the first frame is shown after the video is initialized, even before the play button has been pressed.
-        setState(() {});
-      });
+    _chewieController = ChewieController(
+      autoPlay: true,
+      videoPlayerController: VideoPlayerController.file(File(localPath)),
+      aspectRatio: 16 / 9, // Set your desired aspect ratio
+      autoInitialize: true,
+      looping: false,
+      allowedScreenSleep: false,
+      materialProgressColors: ChewieProgressColors(
+        playedColor: Colors.red,
+        handleColor: Colors.blue,
+        backgroundColor: Colors.grey,
+        bufferedColor: Colors.white,
+      ),
+    );
+
     getPermissions();
     super.initState();
   }
@@ -59,36 +70,42 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Colors.black,
         title: Text(widget.title),
       ),
       body: Column(
         children: [
           Center(
-            child: ElevatedButton(
-              onPressed: () {
-                _pickVideo();
-              },
-              child: const Text("Choose Video"),
+            child: Padding(
+              padding: const EdgeInsets.only(top: 50),
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.black),
+                onPressed: () {
+                  _pickVideo();
+                },
+                child: const Text("Choose Video"),
+              ),
             ),
           ),
-          if(succeed)
-          SizedBox(
-            width: MediaQuery.of(context).size.width,
-            height: MediaQuery.of(context).size.height / 2,
-            child: AspectRatio(
-              aspectRatio: _controller.value.aspectRatio,
-              child: VideoPlayer(_controller),
+          if(succeed) SizedBox(
+              width: MediaQuery.of(context).size.width,
+              height: MediaQuery.of(context).size.height / 2,
+              child: Chewie(controller: _chewieController),
             ),
-          ),
-          succeed ? IconButton(onPressed: (){
-            setState(() {
-              _controller.value.isPlaying
-                  ? _controller.pause()
-                  : play();
-            });
-          }, icon: Icon(
-            _controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
-          )) : const SizedBox()
+         if(succeed) IconButton(
+            onPressed: () {
+              setState(() {
+                _chewieController.isPlaying
+                    ? _chewieController.pause()
+                    : _chewieController.play();
+              });
+            },
+            icon: Icon(
+              _chewieController.isPlaying
+                  ? Icons.pause
+                  : Icons.play_arrow,
+            ),
+          )
         ],
       ),
     );
@@ -96,8 +113,8 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   void dispose() {
+    _chewieController.dispose();
     super.dispose();
-    _controller.dispose();
   }
 
   Future<void> _pickVideo() async {
@@ -123,10 +140,13 @@ class _MyHomePageState extends State<MyHomePage> {
       // Send the request
       var response = await request.send();
       if (response.statusCode == 200) {
+        await prepareChewie();
+        setState(() {
+          succeed = true;
+        });
         // The response should contain the converted video or other data
         var responseData = await response.stream.toBytes();
         var decodedData = jsonDecode(utf8.decode(responseData));
-        print(decodedData);
         // Save the converted video to the phone's storage
         await saveVideoToStorage(decodedData['video']);
       } else {
@@ -165,13 +185,11 @@ class _MyHomePageState extends State<MyHomePage> {
       final file = File('${appDocumentDirectory?.path}/converted_video.mp4');
       localPath = '${appDocumentDirectory?.path}/converted_video.mp4';
       await file.writeAsBytes(decodedBytes);
+
       GallerySaver.saveVideo(localPath).then((value) {
         showToast('Video Saved !');
       });
       print('Video saved to: ${file.path}');
-      setState(() {
-        succeed = true;
-      });
     } catch (e) {
       print('Error saving video to storage: $e');
       return showToast('Error saving video. Please try again.');
@@ -190,21 +208,20 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  void play(){
-    if(_controller.value.isInitialized){
-    _controller.play();
-    }
-    else{
-    prepareVideoPlayer();
-    _controller.play();
-    }
-  }
-
-  void prepareVideoPlayer(){
-    _controller = VideoPlayerController.file(File(localPath))
-      ..initialize().then((_) {
-        // Ensure the first frame is shown after the video is initialized, even before the play button has been pressed.
-        setState(() {});
-      });
+  Future<void> prepareChewie() async {
+    final appDocumentDirectory = await getExternalStorageDirectory();
+    _chewieController = ChewieController(
+      videoPlayerController: VideoPlayerController.file(File('${appDocumentDirectory?.path}/converted_video.mp4')),
+      aspectRatio: 16 / 9, // Set your desired aspect ratio
+      autoInitialize: true,
+      looping: false,
+      allowedScreenSleep: false,
+      materialProgressColors: ChewieProgressColors(
+        playedColor: Colors.red,
+        handleColor: Colors.blue,
+        backgroundColor: Colors.grey,
+        bufferedColor: Colors.white,
+      ),
+    );
   }
 }
